@@ -1,101 +1,123 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
+
 module Control.HasSub where
 
-import Data.Coerce (coerce)
+import Control.Applicative (Applicative (liftA2))
+import Data.Coerce (Coercible, coerce)
+import Data.Functor.Compose (Compose (..))
+import Data.Functor.Identity (Identity (..))
 import Data.Kind (Constraint, Type)
 import GHC.Generics
 import GHC.TypeLits (ErrorMessage (..), TypeError)
 
-class HasSub' tag t s where
-  getSub :: t -> s
-  setSub :: t -> s -> t
-  default getSub :: (Generic t, HasSub'' s (Rep t), ContainsSome s (Rep t)) => t -> s
-  getSub = getSubs' . from
-  default setSub :: (Generic t, HasSub'' s (Rep t), ContainsSome s (Rep t)) => t -> s -> t
-  setSub x = to . setSubs' (from x)
+class HasSub tag t s where
+  modSub :: Applicative m => (s -> m s) -> t -> m t
+  getSub :: Monoid m => (s -> m) -> t -> m
+  default modSub ::
+    ( Generic t,
+      HasSub' s (Rep t),
+      -- ContainsSome s (Rep t) t,
+      Applicative m
+    ) =>
+    (s -> m s) ->
+    t ->
+    m t
+  modSub f = fmap to . modSub' f . from
+  default getSub ::
+    ( Generic t,
+      HasSub' s (Rep t),
+      -- ContainsSome s (Rep t) t,
+      Monoid m
+    ) =>
+    (s -> m) ->
+    t ->
+    m
+  getSub f = getSub' f . from
 
-data GenericTag
+data GTag t
 
-type HasSub = HasSub' GenericTag
+-- Generic instance
 
-instance
-  ( Generic t,
-    HasSub'' s (Rep t),
-    ContainsSome s (Rep t)
-  ) =>
-  HasSub' GenericTag t s
+instance {-# INCOHERENT #-} (Generic t, HasSub' s (Rep t), ContainsSome s (Rep t) t) => HasSub (GTag a) t s
 
-newtype NestedSub (b :: Type) a = NestedSub a
-  deriving (Generic)
+-- Other useful instances
 
-instance
-  ( Generic t,
-    HasSub'' u (Rep t),
-    ContainsSome u (Rep t),
-    HasSub' tag u s
-  ) =>
-  HasSub' tag t (NestedSub u s)
-  where
-  getSub = coerce . getSub @tag @u @s . getSubs' . from
-  setSub x s =
-    to $ setSubs' (from x) $ setSub @tag @u @s (getSubs' $ from x) (coerce s)
+-- | Use this for matching with another type that is coercible to the functor you want.
+newtype MatchWith s (g :: Type -> Type) a = MatchWith (g a)
+  deriving (Eq, Ord, Show, Functor, Foldable, Generic)
 
-class HasSub'' s t where
-  getSubs' :: t p -> s
-  setSubs' :: t p -> s -> t p
+instance (Traversable g) => Traversable (MatchWith s g) where
+  traverse f (MatchWith xs) = MatchWith <$> traverse f xs
+  sequenceA (MatchWith xs) = MatchWith <$> sequenceA xs
 
-instance {-# OVERLAPPING #-} HasSub'' s (K1 j s) where
-  getSubs' (K1 x) = x
-  setSubs' _ x = K1 x
+instance (HasSub tag t l, Coercible l (g s)) => HasSub tag t (MatchWith l g s) where
+  modSub f = modSub @tag @t @l (fmap coerce . f . coerce)
+  getSub f = getSub @tag @t @l (f . coerce)
 
-instance Monoid s => HasSub'' s (K1 j t) where
-  getSubs' = const mempty
-  setSubs' = const
+-- | Use this for matching a subcomponent nested inside another type. Useful if
+-- you don't want to add the middle type to the list of walkable types.
+newtype Under (f :: Type -> Type) (b :: Type) (g :: Type -> Type) a = Under (g a)
+  deriving (Eq, Ord, Show, Functor, Foldable, Generic)
 
-instance {-# OVERLAPPING #-} AtMostOne s xs => HasSub'' s (S1 j (K1 k s) :*: xs) where
-  getSubs' (M1 (K1 x) :*: _) = x
-  setSubs' (_ :*: y) x = M1 (K1 x) :*: y
+instance (Traversable g) => Traversable (Under f b g) where
+  traverse f (Under xs) = Under <$> traverse f xs
+  sequenceA (Under xs) = Under <$> sequenceA xs
 
-associate :: (:*:) (f1 :*: f2) g p -> (:*:) f1 (f2 :*: g) p
-associate ((x :*: y) :*: z) = x :*: y :*: z
+instance (Traversable f, HasSub tag a (f b), HasSub tag b (g c)) => HasSub tag a (Under f b g c) where
+  modSub :: forall m. Applicative m => (Under f b g c -> m (Under f b g c)) -> a -> m a
+  modSub f =
+    let f' :: g c -> m (g c) = fmap coerce . f . coerce
+     in modSub @tag @a @(f b) (traverse $ modSub @tag @b @(g c) f')
+  getSub :: forall m. Monoid m => (Under f b g c -> m) -> a -> m
+  getSub f =
+    let f' :: g c -> m = f . coerce
+     in getSub @tag @a @(f b) (foldMap $ getSub @tag @b @(g c) f')
 
-unassociate :: (:*:) f (g1 :*: g2) p -> (:*:) (f :*: g1) g2 p
-unassociate (x :*: y :*: z) = (x :*: y) :*: z
+-- | Instance for types wrapped around the identity functor
+instance (HasSub tag t s) => HasSub tag t (Identity s) where
+  modSub f = modSub @tag @t @s (fmap coerce . f . coerce)
+  getSub f = getSub @tag @t @s (f . coerce)
 
-instance {-# OVERLAPPING #-} HasSub'' s (xs :*: ys :*: zs) => HasSub'' s ((xs :*: ys) :*: zs) where
-  getSubs' x = getSubs' (associate x)
-  setSubs' x s = unassociate $ setSubs' (associate x) s
+-- Generic code
 
-instance HasSub'' s y => HasSub'' s (x :*: y) where
-  getSubs' (_ :*: y) = getSubs' y
-  setSubs' (x :*: y) y' = x :*: setSubs' y y'
+class HasSub' s t where
+  modSub' :: Applicative m => (s -> m s) -> t p -> m (t p)
+  getSub' :: Monoid m => (s -> m) -> t p -> m
 
-instance Monoid s => HasSub'' s U1 where
-  getSubs' = const mempty
-  setSubs' = const
+instance {-# OVERLAPPING #-} HasSub' s (K1 j s) where
+  modSub' f (K1 x) = K1 <$> f x
+  getSub' f (K1 x) = f x
 
-instance (HasSub'' s x, HasSub'' s y) => HasSub'' s (x :+: y) where
-  getSubs' (L1 x) = getSubs' x
-  getSubs' (R1 y) = getSubs' y
-  setSubs' (L1 x) x' = L1 $ setSubs' x x'
-  setSubs' (R1 y) y' = R1 $ setSubs' y y'
+-- instance {-# OVERLAPPING #-} HasSub' (Identity s) (K1 j s) where
+--   modSub' f (K1 x) = K1 <$> runIdentity <$> f (Identity x)
+--   getSub' f (K1 x) = f (Identity x)
 
-instance (HasSub'' s x) => HasSub'' s (M1 i j x) where
-  getSubs' (M1 x) = getSubs' x
-  setSubs' (M1 x) x' = M1 $ setSubs' x x'
+instance HasSub' s (K1 j t) where
+  modSub' _ = pure
+  getSub' _ = mempty
+
+instance (HasSub' s x, HasSub' s y) => HasSub' s (x :*: y) where
+  modSub' f (x :*: y) = liftA2 (:*:) (modSub' f x) (modSub' f y)
+  getSub' f (x :*: y) = getSub' f x <> getSub' f y
+
+instance HasSub' s U1 where
+  modSub' _ = pure
+  getSub' _ = mempty
+
+instance (HasSub' s x, HasSub' s y) => HasSub' s (x :+: y) where
+  modSub' f (L1 x) = L1 <$> modSub' f x
+  modSub' f (R1 x) = R1 <$> modSub' f x
+  getSub' f (L1 x) = getSub' f x
+  getSub' f (R1 x) = getSub' f x
+
+instance (HasSub' s x) => HasSub' s (M1 a b x) where
+  modSub' f (M1 x) = M1 <$> modSub' f x
+  getSub' f (M1 x) = getSub' f x
 
 type family Or (a :: Constraint) (b :: Constraint) :: Constraint where
   Or () b = ()
   Or a () = ()
-
-type family AtMostOne s t :: Constraint where
-  AtMostOne s (S1 _ (K1 _ s)) =
-    TypeError
-      ( 'Text "At most one field of type "
-          ':<>: 'ShowType s
-          ':<>: 'Text " in each constructor is allowed."
-      )
-  AtMostOne s (xs :*: ys) = AtMostOne s xs `Or` AtMostOne s ys
-  AtMostOne s xs = ()
 
 type family ClearProd s t :: Constraint where
   ClearProd s (S1 i (K1 j s)) = ()
@@ -105,10 +127,21 @@ type family ClearSum s t :: Constraint where
   ClearSum s (C1 _ xs) = ClearProd s xs
   ClearSum s (xs :+: ys) = ClearSum s xs `Or` ClearSum s ys
 
-type family ContainsSome s t :: Constraint where
-  ContainsSome s (D1 _ xs) =
+type family ContainsSome s t pt :: Constraint where
+  ContainsSome s (D1 _ xs) pt =
     ClearSum s xs
       `Or` TypeError
-             ( 'Text "Type does not contain any constructor with a field of type "
+             ( 'Text "Type "
+                 ':<>: 'ShowType pt
+                 ':<>: 'Text " does not contain any constructor with a field of type "
                  ':<>: 'ShowType s
              )
+
+data Foo = Foo String [[Int]]
+  deriving (Generic)
+
+test :: HasSub (GTag ()) Foo (MatchWith ([[Int]]) (Compose [] []) Int) => ()
+test = ()
+
+test2 :: HasSub (GTag ()) Foo (Identity Int) => ()
+test2 = ()
