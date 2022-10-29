@@ -51,12 +51,27 @@ extra-doc-files:    CHANGELOG.md
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
-common warnings
+common common-options
     ghc-options: -Wall -fprint-potential-instances
+    default-extensions:
+        ScopedTypeVariables
+        AllowAmbiguousTypes
+        DefaultSignatures
+        UndecidableInstances
+        ConstraintKinds
+        KindSignatures
+        TypeApplications
+        TypeOperators
+        DataKinds
+        TypeFamilies
+        FlexibleInstances
+        MultiParamTypeClasses
+        FlexibleContexts
+        DeriveGeneric
+        LambdaCase
 
 library
-    -- Import common warning flags.
-    import:           warnings
+    import:           common-options
 
     -- Modules exported by the library.
     exposed-modules:  Control.MultiWalk
@@ -76,18 +91,31 @@ library
 
     -- Base language which the package is written in.
     default-language: Haskell2010
-    default-extensions:
-        ScopedTypeVariables
-        AllowAmbiguousTypes
-        DefaultSignatures
-        UndecidableInstances
-        ConstraintKinds
-        KindSignatures
-        TypeApplications
-        TypeOperators
-        DataKinds
-        TypeFamilies
-        FlexibleInstances
-        MultiParamTypeClasses
-        FlexibleContexts
-        DeriveGeneric
+
+test-suite multiwalk-test
+    import:           common-options
+
+    -- Base language which the package is written in.
+    default-language: Haskell2010
+
+    -- Modules included in this executable, other than Main.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          Main.hs
+
+    -- Test dependencies.
+    build-depends:
+        base >= 4.14 && < 5,
+        multiwalk,
+        tasty,
+        tasty-hunit
