@@ -5,6 +5,7 @@
 
 module Control.MultiWalk
   ( query,
+    walk,
     walkM,
     buildMultiW,
     buildMultiQ,
@@ -21,6 +22,7 @@ where
 
 import Control.HasSub
 import Control.Monad ((>=>))
+import Data.Functor.Identity (Identity (Identity, runIdentity))
 import Data.Kind (Type)
 
 class
@@ -61,6 +63,14 @@ query ::
 query f =
   buildMultiQ @tag $ \go l ->
     l ?> \x -> f x <> go x
+
+walk ::
+  forall tag t c.
+  (MultiTag tag, MultiWalk tag c, MultiWalk tag t) =>
+  (t -> t) ->
+  c ->
+  c
+walk f = runIdentity . walkM @tag (Identity . f)
 
 walkM ::
   forall tag a m t.

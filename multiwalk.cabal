@@ -119,3 +119,22 @@ test-suite multiwalk-test
         multiwalk,
         tasty,
         tasty-hunit
+
+benchmark bench
+    import:           common-options
+    hs-source-dirs:   test
+    main-is:          Benchmark.hs
+    type:             exitcode-stdio-1.0
+    build-depends:
+        base >= 4.14 && < 5,
+        bytestring,
+        deepseq,
+        multiwalk,
+        tasty,
+        tasty-bench,
+        tasty-hunit,
+        pandoc-types,
+        commonmark,
+        commonmark-pandoc,
+        text
+    ghc-options:   "-with-rtsopts=-A32m --nonmoving-gc"

@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 
@@ -27,7 +26,6 @@ instance {-# OVERLAPS #-} QContains (t : xs) t where
 instance QContains xs t => QContains (x : xs) t where
   qGet (_ :?: y) = qGet y
   qSet (x :?: y) z = x :?: qSet y z
-
 
 infixr 8 :.:
 
@@ -63,12 +61,12 @@ instance (Generic t, HasSub' (l : ls) (c : cs) (Rep t)) => HasSub (l : ls) (c : 
 
 -- | Use this for matching with another type that is coercible to the functor you want.
 newtype MatchWith s g a = MatchWith (g a)
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
+  deriving (Eq, Ord, Show, Generic)
 
 -- | Use this for matching a subcomponent nested inside another type. Useful if
 -- you don't want to add the middle type to the list of walkable types.
 newtype Under (f :: Type -> Type) (b :: Type) (g :: Type -> Type) a = Under (g a)
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
+  deriving (Eq, Ord, Show, Generic)
 
 -- Generic code
 
