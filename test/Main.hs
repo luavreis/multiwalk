@@ -35,8 +35,8 @@ instance MultiWalk FooTag [Int] where
 sampleFoo :: Foo
 sampleFoo = Foo2 "bla" (Foo2 "blblo" (Foo1 "ok"))
 
-list' :: FList Identity '[Int, [Int], String, Foo]
-list' = (Identity . (2 *)) :.: (\x -> Identity (x ++ x)) :.: (Identity . ('2' :)) :.: pure :.: FNil
+list' :: FList Identity '[String, Foo, Int, [Int]]
+list' = (Identity . ('2' :)) :.: pure :.: (Identity . (2 *)) :.: (\x -> Identity (x ++ x)) :.: FNil
 
 sampleFoo2 :: Foo
 sampleFoo2 = Foo3 [0, 1] "abc" [[4, 8, 9], [5, 6, 7]] 32 [2, 3]
@@ -55,12 +55,9 @@ tests =
               @?= ["bla", "blblo", "ok"]
         ],
       testCase "ModSub" $
-        modSub @(SubTypes Foo) @(Containers Foo) list' sampleFoo2
+        walkSub @FooTag list' sampleFoo2
           @?= Identity (Foo3 [0, 1, 0, 1] "2abc" [[8, 16, 18], [10, 12, 14]] 32 [2, 3, 2, 3])
     ]
-
--- resolve :: forall t. (MultiWalk FooTag t) => t -> t
--- resolve = undefined
 
 main :: IO ()
 main = defaultMain tests

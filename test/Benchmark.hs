@@ -8,7 +8,7 @@ import Commonmark.Pandoc
 import Commonmark.Parser
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.HasSub (MatchWith, Under)
+import Control.HasSub (MatchWith, Under, GSubTag)
 import Control.MultiWalk
 import qualified Data.ByteString as B
 import Data.Functor.Compose (Compose (..))
@@ -41,8 +41,8 @@ instance MultiWalk PTag Block where
          DoubleList Inline,
          [],
          DoubleList Block,
-         Under [] ([Inline], [[Block]]) [],
-         Under [] ([Inline], [[Block]]) (DoubleList Block)
+         Under GSubTag [] ([Inline], [[Block]]) [],
+         Under GSubTag [] ([Inline], [[Block]]) (DoubleList Block)
        ]
 
 instance MultiWalk PTag Inline where

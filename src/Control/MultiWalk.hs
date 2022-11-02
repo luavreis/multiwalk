@@ -2,11 +2,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Control.MultiWalk
   ( query,
     walk,
     walkM,
+    walkSub,
+    querySub,
     buildMultiW,
     buildMultiQ,
     (.>),
@@ -38,17 +41,25 @@ class
     All (FContains (MultiTypes tag)) (SubTypes t),
     QContains (MultiTypes tag) t,
     FContains (MultiTypes tag) t,
-    HasSub (SubTypes t) (Containers t) t
+    HasSub (SubTag t) (SubTypes t) (Containers t) t
   ) =>
   MultiWalk tag t
   where
   type SubTypes t :: [Type]
   type Containers t :: [Type -> Type]
-  type Containers t = DefaultContainers (SubTypes t)
+  type Containers t = FillWith [] (SubTypes t)
+  type SubTag t :: Type
+  type SubTag t = GSubTag
 
-type family DefaultContainers (xs :: [Type]) :: [Type -> Type] where
-  DefaultContainers '[] = '[]
-  DefaultContainers (x : xs) = [] ': DefaultContainers xs
+type family FillWith (a :: k) (xs :: [k2]) :: [k] where
+  FillWith _ '[] = '[]
+  FillWith x (_ : xs) = x : FillWith x xs
+
+querySub :: forall tag t m. (Monoid m, MultiWalk tag t) => QList m (MultiTypes tag) -> t -> m
+querySub = getSub @(SubTag t) @(SubTypes t) @(Containers t)
+
+walkSub :: forall tag t m. (Applicative m, MultiWalk tag t) => FList m (MultiTypes tag) -> t -> m t
+walkSub = modSub @(SubTag t) @(SubTypes t) @(Containers t)
 
 query ::
   forall tag m t a.
@@ -102,7 +113,7 @@ buildMultiQ f = qGet qlist
     qlist :: QList m (MultiTypes tag)
     qlist = f go $ buildQ @(MultiWalk tag) go
     go :: forall s. MultiWalk tag s => s -> m
-    go = getSub @(SubTypes s) @(Containers s) qlist
+    go = querySub @tag qlist
 
 type Walk tag m = forall t. MultiWalk tag t => t -> m t
 
@@ -120,7 +131,7 @@ buildMultiW f = fGet flist
     flist :: FList m (MultiTypes tag)
     flist = f go $ buildF @(MultiWalk tag) go
     go :: forall s. MultiWalk tag s => s -> m s
-    go = modSub @(SubTypes s) @(Containers s) flist
+    go = walkSub @tag flist
 
 class All c ls => BuildQ c ls where
   buildQ :: (forall t. c t => t -> m) -> QList m ls

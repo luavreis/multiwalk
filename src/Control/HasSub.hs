@@ -45,15 +45,17 @@ instance FContains xs t => FContains (x : xs) t where
   fGet (_ :.: y) = fGet y
   fSet (x :.: y) z = x :.: fSet y z
 
-class HasSub ls cs t where
+class HasSub tag ls cs t where
   modSub :: (Applicative m, All (FContains fs) ls) => FList m fs -> t -> m t
   getSub :: (Monoid m, All (QContains fs) ls) => QList m fs -> t -> m
 
-instance HasSub '[] '[] t where
+instance HasSub tag '[] '[] t where
   modSub _ = pure
   getSub _ = mempty
 
-instance (Generic t, HasSub' (l : ls) (c : cs) (Rep t)) => HasSub (l : ls) (c : cs) t where
+data GSubTag
+
+instance (Generic t, HasSub' (l : ls) (c : cs) (Rep t)) => HasSub GSubTag (l : ls) (c : cs) t where
   modSub f = fmap to . modSub' @(l : ls) @(c : cs) f . from
   getSub f = getSub' @(l : ls) @(c : cs) f . from
 
@@ -65,7 +67,7 @@ newtype MatchWith s g a = MatchWith (g a)
 
 -- | Use this for matching a subcomponent nested inside another type. Useful if
 -- you don't want to add the middle type to the list of walkable types.
-newtype Under (f :: Type -> Type) (b :: Type) (g :: Type -> Type) a = Under (g a)
+newtype Under tag (f :: Type -> Type) (b :: Type) (g :: Type -> Type) a = Under (g a)
   deriving (Eq, Ord, Show, Generic)
 
 -- Generic code
@@ -78,9 +80,9 @@ class HasSub' (ls :: [Type]) (cs :: [Type -> Type]) (t :: Type -> Type) where
   modSub' :: (Applicative m, All (FContains fs) ls) => FList m fs -> t p -> m (t p)
   getSub' :: (Monoid m, All (QContains fs) ls) => QList m fs -> t p -> m
 
-instance (Traversable f, HasSub '[c] '[g] b) => HasSub' (c : ls) (Under f b g : cs) (K1 j (f b)) where
-  modSub' fs (K1 x) = K1 <$> traverse (modSub @'[c] @'[g] fs) x
-  getSub' fs (K1 x) = foldMap (getSub @'[c] @'[g] fs) x
+instance (Traversable f, HasSub tag '[c] '[g] b) => HasSub' (c : ls) (Under tag f b g : cs) (K1 j (f b)) where
+  modSub' fs (K1 x) = K1 <$> traverse (modSub @tag @'[c] @'[g] fs) x
+  getSub' fs (K1 x) = foldMap (getSub @tag @'[c] @'[g] fs) x
 
 instance (Coercible l (g s), Traversable g) => HasSub' (s : ls) (MatchWith l g : cs) (K1 j l) where
   modSub' fs (K1 x) = K1 . coerce <$> traverse (fGet fs) (coerce x :: g s)
