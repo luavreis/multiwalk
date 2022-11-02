@@ -1,8 +1,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-{-# LANGUAGE PolyKinds #-}
 
 module Control.MultiWalk
   ( query,
@@ -18,6 +18,8 @@ module Control.MultiWalk
     Query,
     FList (..),
     QList (..),
+    BuildF (..),
+    BuildQ (..),
     MultiTag (..),
     MultiWalk (..),
   )
