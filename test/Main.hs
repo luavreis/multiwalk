@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Control.HasSub
+import Control.MultiWalk.Contains
 import Control.MultiWalk
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
@@ -23,14 +23,19 @@ instance MultiWalk FooTag String where
   type SubTypes String = '[]
 
 instance MultiWalk FooTag Foo where
-  type SubTypes Foo = '[Foo, String, Int, [Int]]
-  type Containers Foo = '[Identity, Identity, MatchWith [[Int]] (Compose [] []), Identity]
+  type
+    SubTypes Foo =
+      '[BuildSpec Foo,
+        BuildSpec String,
+        BuildSpec (MatchWith [[Int]] (Trav (Compose [] []) Int)),
+        BuildSpec [Int]
+       ]
 
 instance MultiWalk FooTag Int where
   type SubTypes Int = '[]
 
 instance MultiWalk FooTag [Int] where
-  type SubTypes [Int] = '[Int]
+  type SubTypes [Int] = '[BuildSpec (Trav [] Int)]
 
 sampleFoo :: Foo
 sampleFoo = Foo2 "bla" (Foo2 "blblo" (Foo1 "ok"))

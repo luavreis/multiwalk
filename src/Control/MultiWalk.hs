@@ -25,7 +25,8 @@ module Control.MultiWalk
   )
 where
 
-import Control.HasSub
+import Control.MultiWalk.HasSub
+import Control.MultiWalk.Contains
 import Control.Monad ((>=>))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
 import Data.Kind (Type)
@@ -39,17 +40,14 @@ class
   type MultiTypes tag :: [Type]
 
 class
-  ( All (QContains (MultiTypes tag)) (SubTypes t),
-    All (FContains (MultiTypes tag)) (SubTypes t),
+  ( All (TContains (MultiTypes tag)) (SubTypes t),
     QContains (MultiTypes tag) t,
     FContains (MultiTypes tag) t,
-    HasSub (SubTag t) (SubTypes t) (Containers t) t
+    HasSub (SubTag t) (SubTypes t) t
   ) =>
   MultiWalk tag t
   where
-  type SubTypes t :: [Type]
-  type Containers t :: [Type -> Type]
-  type Containers t = FillWith [] (SubTypes t)
+  type SubTypes t :: [SubSpec]
   type SubTag t :: Type
   type SubTag t = GSubTag
 
@@ -58,10 +56,10 @@ type family FillWith (a :: k) (xs :: [k2]) :: [k] where
   FillWith x (_ : xs) = x : FillWith x xs
 
 querySub :: forall tag t m. (Monoid m, MultiWalk tag t) => QList m (MultiTypes tag) -> t -> m
-querySub = getSub @(SubTag t) @(SubTypes t) @(Containers t)
+querySub = getSubWithQList @(SubTag t) @(SubTypes t)
 
 walkSub :: forall tag t m. (Applicative m, MultiWalk tag t) => FList m (MultiTypes tag) -> t -> m t
-walkSub = modSub @(SubTag t) @(SubTypes t) @(Containers t)
+walkSub = modSubWithFList @(SubTag t) @(SubTypes t)
 
 query ::
   forall tag m t a.

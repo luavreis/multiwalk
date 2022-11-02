@@ -8,7 +8,8 @@ import Commonmark.Pandoc
 import Commonmark.Parser
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.HasSub (MatchWith, Under, GSubTag)
+import Control.MultiWalk.Contains
+import Control.MultiWalk.HasSub
 import Control.MultiWalk
 import qualified Data.ByteString as B
 import Data.Functor.Compose (Compose (..))
@@ -31,27 +32,23 @@ instance MultiTag PTag where
          Inline
        ]
 
-type DoubleList a = MatchWith [[a]] (Compose [] [])
+type DoubleList a = MatchWith [[a]] (Trav (Compose [] []) a)
 
 instance MultiWalk PTag Block where
-  type SubTypes Block = '[Inline, Inline, Block, Block, Inline, Block]
   type
-    Containers Block =
-      '[ [],
-         DoubleList Inline,
-         [],
-         DoubleList Block,
-         Under GSubTag [] ([Inline], [[Block]]) [],
-         Under GSubTag [] ([Inline], [[Block]]) (DoubleList Block)
+    SubTypes Block =
+      '[ BuildSpec (Trav [] Inline),
+         BuildSpec (DoubleList Inline),
+         BuildSpec (Trav [] Block),
+         BuildSpec (DoubleList Block),
+         BuildSpec (Under GSubTag [([Inline], [[Block]])]
+               (Under GSubTag ([Inline], [[Block]]) (Trav [] Inline))),
+         BuildSpec (Under GSubTag [([Inline], [[Block]])]
+               (Under GSubTag ([Inline], [[Block]]) (DoubleList Block)))
        ]
 
 instance MultiWalk PTag Inline where
-  type SubTypes Inline = '[Inline, Block]
-  type
-    Containers Inline =
-      '[ [],
-         []
-       ]
+  type SubTypes Inline = '[BuildSpec (Trav [] Inline), BuildSpec (Trav [] Block)]
 
 prepEnv :: IO [Block]
 prepEnv = do

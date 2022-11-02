@@ -75,7 +75,8 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  Control.MultiWalk
-                    , Control.HasSub
+                    , Control.MultiWalk.HasSub
+                    , Control.MultiWalk.Contains
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -138,3 +139,4 @@ benchmark bench
         commonmark-pandoc,
         text
     ghc-options:   "-with-rtsopts=-A32m --nonmoving-gc"
+    default-language: Haskell2010
