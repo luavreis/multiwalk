@@ -9,7 +9,6 @@ import Commonmark.Parser
 import Control.DeepSeq
 import Control.Exception (evaluate)
 import Control.MultiWalk.Contains
-import Control.MultiWalk.HasSub
 import Control.MultiWalk
 import qualified Data.ByteString as B
 import Data.Functor.Compose (Compose (..))
@@ -41,10 +40,10 @@ instance MultiWalk PTag Block where
          BuildSpec (DoubleList Inline),
          BuildSpec (Trav [] Block),
          BuildSpec (DoubleList Block),
-         BuildSpec (Under GSubTag [([Inline], [[Block]])]
-               (Under GSubTag ([Inline], [[Block]]) (Trav [] Inline))),
-         BuildSpec (Under GSubTag [([Inline], [[Block]])]
-               (Under GSubTag ([Inline], [[Block]]) (DoubleList Block)))
+         BuildSpec (Under [([Inline], [[Block]])]
+               (Under ([Inline], [[Block]]) (Trav [] Inline))),
+         BuildSpec (Under [([Inline], [[Block]])]
+               (Under ([Inline], [[Block]]) (DoubleList Block)))
        ]
 
 instance MultiWalk PTag Inline where

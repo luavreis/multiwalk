@@ -2,7 +2,7 @@
 
 module Control.MultiWalk.Contains where
 
-import Control.MultiWalk.HasSub (All, SpecCarrier, HasSub (..), SubSpec (..))
+import Control.MultiWalk.HasSub (All, SpecCarrier, HasSub (..), SubSpec (..), GSubTag)
 import Data.Coerce (Coercible, coerce)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (..))
@@ -62,12 +62,16 @@ instance FContains xs t => FContains (x : xs) t where
   fSet (x :.: y) z = x :.: fSet y z
 
 type family CombinatorCarrier (b :: Type) :: Type where
-  CombinatorCarrier (Under tag s a) = s
+  CombinatorCarrier (Under s a) = s
   CombinatorCarrier (MatchWith s a) = s
-  CombinatorCarrier (Trav f a) = f a
+  CombinatorCarrier (Trav f a) = f (CombinatorCarrier a)
   CombinatorCarrier a = a
 
 type BuildSpec (b :: Type) = 'SubSpec (CombinatorCarrier b) b
+
+type family ToSpecList (xs :: [Type]) :: [SubSpec] where
+  ToSpecList (x : xs) = BuildSpec x : ToSpecList xs
+  ToSpecList '[] = '[]
 
 class TContains (fs :: [Type]) (t :: SubSpec) where
   tGetW :: Applicative m => FList m fs -> SpecCarrier t -> m (SpecCarrier t)
@@ -88,13 +92,13 @@ data Trav (k :: Type -> Type) (a :: Type)
 
 instance
   ( Traversable f,
-    FContains fs a,
-    QContains fs a
+    TContains fs (BuildSpec a),
+    c ~ CombinatorCarrier a
   ) =>
-  TContains fs ('SubSpec (f a) (Trav f a))
+  TContains fs ('SubSpec (f c) (Trav f a))
   where
-  tGetW = traverse . fGet
-  tGetQ = foldMap . qGet
+  tGetW = traverse . tGetW @fs @(BuildSpec a)
+  tGetQ = foldMap . tGetQ @fs @(BuildSpec a)
 
 -- | Use this for matching with another type that is coercible to the functor you want.
 data MatchWith (s :: Type) (a :: Type)
@@ -110,13 +114,13 @@ instance
 
 -- | Use this for matching a subcomponent nested inside another type. Useful if
 -- you don't want to add the middle type to the list of walkable types.
-data Under (tag :: Type) (b :: Type) (a :: Type)
+data Under (b :: Type) (a :: Type)
 
 instance
   ( TContains fs (BuildSpec a),
-    HasSub tag '[BuildSpec a] b
+    HasSub GSubTag '[BuildSpec a] b
   ) =>
-  TContains fs ('SubSpec b (Under tag b a))
+  TContains fs ('SubSpec b (Under b a))
   where
-  tGetW = modSubWithFList @tag @'[BuildSpec a] @b @fs
-  tGetQ = getSubWithQList @tag @'[BuildSpec a] @b @fs
+  tGetW = modSubWithFList @GSubTag @'[BuildSpec a] @b @fs
+  tGetQ = getSubWithQList @GSubTag @'[BuildSpec a] @b @fs
