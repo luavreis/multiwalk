@@ -1,4 +1,4 @@
 Name,Mean (ps),2*Stdev (ps)
-All.query.multiwalk,209460634,11594392
-All.query.syb,5270931150,90391566
-All.query.pandoc.walk,471308360,16307038
+All.query.multiwalk,81033707,1398396
+All.query.syb,5400852887,249856166
+All.query.pandoc.walk,484935873,24431920
