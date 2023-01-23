@@ -23,10 +23,16 @@ name:               multiwalk
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           Like Text.Pandoc.Walk, but multi
+synopsis:  Traverse data types via generics, acting on multiple types simultaneously.
 
 -- A longer description of the package.
--- description:
+description:
+    This library provides functionality for traversing data types recursively,
+    acting on multiple types during the same traversal. In spirit, it is similar to
+    the Walk type class from Pandoc.Walk, but generalizes it by allowing
+    multiple types to be targeted by the traversal. In general, it only
+    requires an Applicative constraint on the action, making it suitable for
+    situations where you don't have a Monad.
 
 -- The license under which the package is released.
 license:            GPL-3.0-or-later
@@ -46,10 +52,15 @@ category:           Control
 build-type:         Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    CHANGELOG.md
+extra-doc-files:    README.md
+                  , CHANGELOG.md
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
+
+source-repository head
+  type:     git
+  location: https://github.com/lucasvreis/multiwalk
 
 common common-options
     ghc-options: -Wall -fprint-potential-instances
@@ -85,7 +96,8 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base >= 4.14 && < 5
+    build-depends:    base >= 4.14 && < 5,
+                      transformers
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -126,17 +138,17 @@ benchmark bench
     hs-source-dirs:   test
     main-is:          Benchmark.hs
     type:             exitcode-stdio-1.0
-    build-depends:
-        base >= 4.14 && < 5,
-        bytestring,
-        deepseq,
-        multiwalk,
-        tasty,
-        tasty-bench,
-        tasty-hunit,
-        pandoc-types,
-        commonmark,
-        commonmark-pandoc,
-        text
+    build-depends:    base >= 4.14 && < 5,
+                      bytestring,
+                      deepseq,
+                      multiwalk,
+                      tasty,
+                      tasty-bench,
+                      tasty-hunit,
+                      pandoc-types,
+                      commonmark,
+                      commonmark-pandoc,
+                      transformers,
+                      text
     ghc-options:   "-with-rtsopts=-A32m --nonmoving-gc"
     default-language: Haskell2010
