@@ -18,24 +18,25 @@ data FooTag
 
 instance MultiTag FooTag where
   type MultiTypes FooTag = '[String, Foo, Int, [Int]]
+  type SubTag FooTag = FooTag
 
-instance MultiWalk FooTag String where
-  type SubTypes String = '[]
+instance MultiSub FooTag String where
+  type SubTypes FooTag String = '[]
 
-instance MultiWalk FooTag Foo where
+instance MultiSub FooTag Foo where
   type
-    SubTypes Foo =
+    SubTypes FooTag Foo =
       '[BuildSpec Foo,
         BuildSpec String,
         BuildSpec (MatchWith [[Int]] (Trav (Compose [] []) Int)),
         BuildSpec [Int]
        ]
 
-instance MultiWalk FooTag Int where
-  type SubTypes Int = '[]
+instance MultiSub FooTag Int where
+  type SubTypes FooTag Int = '[]
 
-instance MultiWalk FooTag [Int] where
-  type SubTypes [Int] = '[BuildSpec (Trav [] Int)]
+instance MultiSub FooTag [Int] where
+  type SubTypes FooTag [Int] = '[BuildSpec (Trav [] Int)]
 
 sampleFoo :: Foo
 sampleFoo = Foo2 "bla" (Foo2 "blblo" (Foo1 "ok"))

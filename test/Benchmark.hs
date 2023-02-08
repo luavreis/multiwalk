@@ -8,9 +8,13 @@ import Commonmark.Pandoc
 import Commonmark.Parser
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.MultiWalk.Contains
+import qualified Control.Monad.Trans.Writer.Lazy as LW
+import qualified Control.Monad.Trans.Writer.Strict as CPSW
+import qualified Control.Monad.Trans.Writer.Strict as SW
 import Control.MultiWalk
+import Control.MultiWalk.Contains
 import qualified Data.ByteString as B
+import Data.Functor (($>))
 import Data.Functor.Compose (Compose (..))
 import Data.List (sort)
 import Data.Text (Text)
@@ -20,11 +24,7 @@ import Test.Tasty.HUnit
 import Text.Pandoc.Builder (Blocks, toList)
 import Text.Pandoc.Definition
 import Text.Pandoc.Generic (queryWith)
-import qualified Control.Monad.Trans.Writer.Lazy as LW
-import qualified Control.Monad.Trans.Writer.Strict as SW
-import qualified Control.Monad.Trans.Writer.Strict as CPSW
 import qualified Text.Pandoc.Walk as PW
-import Data.Functor (($>))
 
 data PTag
 
@@ -34,24 +34,33 @@ instance MultiTag PTag where
       '[ Block,
          Inline
        ]
+  type SubTag PTag = PTag
 
 type DoubleList a = MatchWith [[a]] (Trav (Compose [] []) a)
 
-instance MultiWalk PTag Block where
+instance MultiSub PTag Block where
   type
-    SubTypes Block =
+    SubTypes PTag Block =
       '[ BuildSpec (Trav [] Inline),
          BuildSpec (DoubleList Inline),
          BuildSpec (Trav [] Block),
          BuildSpec (DoubleList Block),
-         BuildSpec (Under [([Inline], [[Block]])]
-               (Under ([Inline], [[Block]]) (Trav [] Inline))),
-         BuildSpec (Under [([Inline], [[Block]])]
-               (Under ([Inline], [[Block]]) (DoubleList Block)))
+         BuildSpec
+           ( Under
+               [([Inline], [[Block]])]
+               (Under ([Inline], [[Block]]) (Trav [] Inline))
+           ),
+         BuildSpec
+           ( Under
+               [([Inline], [[Block]])]
+               (Under ([Inline], [[Block]]) (DoubleList Block))
+           )
        ]
 
-instance MultiWalk PTag Inline where
-  type SubTypes Inline = '[BuildSpec (Trav [] Inline), BuildSpec (Trav [] Block)]
+instance MultiSub PTag Inline where
+  type
+    SubTypes PTag Inline =
+      '[BuildSpec (Trav [] Inline), BuildSpec (Trav [] Block)]
 
 prepEnv :: IO [Block]
 prepEnv = do
