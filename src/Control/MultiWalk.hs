@@ -33,8 +33,8 @@ import Data.Functor.Identity (Identity (Identity, runIdentity))
 import Data.Kind (Type)
 
 class
-  ( BuildF (MultiWalk tag) (MultiTypes tag),
-    BuildQ (MultiWalk tag) (MultiTypes tag)
+  ( BuildF (MultiWalk' tag) (MultiTypes tag),
+    BuildQ (MultiWalk' tag) (MultiTypes tag)
   ) =>
   MultiTag tag
   where
@@ -46,21 +46,16 @@ class MultiSub stag t where
   type HasSubTag stag t :: Type
   type HasSubTag stag t = GSubTag
 
-class
+type MultiWalk tag t =
   ( All (TContains (MultiTypes tag)) (SubTypes (SubTag tag) t),
     QContains (MultiTypes tag) t,
     FContains (MultiTypes tag) t,
     HasSub (HasSubTag (SubTag tag) t) (SubTypes (SubTag tag) t) t
-  ) =>
-  MultiWalk tag t
+  )
 
-instance
-  ( All (TContains (MultiTypes tag)) (SubTypes (SubTag tag) t),
-    QContains (MultiTypes tag) t,
-    FContains (MultiTypes tag) t,
-    HasSub (HasSubTag (SubTag tag) t) (SubTypes (SubTag tag) t) t
-  ) =>
-  MultiWalk tag t
+class (MultiWalk tag t) => MultiWalk' tag t
+
+instance (MultiWalk tag t) => MultiWalk' tag t
 
 querySub :: forall tag t m. (Monoid m, MultiWalk tag t) => QList m (MultiTypes tag) -> t -> m
 querySub = getSubWithQList @(HasSubTag (SubTag tag) t) @(SubTypes (SubTag tag) t)
@@ -118,7 +113,7 @@ buildMultiQ ::
 buildMultiQ f = qGet qlist
   where
     qlist :: QList m (MultiTypes tag)
-    qlist = f go $ buildQ @(MultiWalk tag) go
+    qlist = f go $ buildQ @(MultiWalk' tag) go
     go :: forall s. MultiWalk tag s => s -> m
     go = querySub @tag qlist
 
@@ -136,7 +131,7 @@ buildMultiW ::
 buildMultiW f = fGet flist
   where
     flist :: FList m (MultiTypes tag)
-    flist = f go $ buildF @(MultiWalk tag) go
+    flist = f go $ buildF @(MultiWalk' tag) go
     go :: forall s. MultiWalk tag s => s -> m s
     go = walkSub @tag flist
 
