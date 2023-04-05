@@ -1,7 +1,7 @@
 module Main (main) where
 
-import Control.MultiWalk.Contains
 import Control.MultiWalk
+import Control.MultiWalk.Contains
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
@@ -17,26 +17,31 @@ data Foo
 data FooTag
 
 instance MultiTag FooTag where
-  type MultiTypes FooTag = '[String, Foo, Int, [Int]]
-  type SubTag FooTag = FooTag
-
-instance MultiSub FooTag String where
-  type SubTypes FooTag String = '[]
+  type
+    MultiTypes FooTag =
+      '[ String
+       , Foo
+       , Int
+       , [Int]
+       ]
 
 instance MultiSub FooTag Foo where
   type
     SubTypes FooTag Foo =
-      '[BuildSpec Foo,
-        BuildSpec String,
-        BuildSpec (MatchWith [[Int]] (Trav (Compose [] []) Int)),
-        BuildSpec [Int]
+      '[ ToSpec Foo
+       , ToSpec String
+       , ToSpec (MatchWith [[Int]] (Trav (Compose [] []) Int))
+       , ToSpec [Int]
        ]
+
+instance MultiSub FooTag String where
+  type SubTypes FooTag String = '[]
 
 instance MultiSub FooTag Int where
   type SubTypes FooTag Int = '[]
 
 instance MultiSub FooTag [Int] where
-  type SubTypes FooTag [Int] = '[BuildSpec (Trav [] Int)]
+  type SubTypes FooTag [Int] = '[ToSpec (Trav [] Int)]
 
 sampleFoo :: Foo
 sampleFoo = Foo2 "bla" (Foo2 "blblo" (Foo1 "ok"))
@@ -55,12 +60,12 @@ tests =
         "Query"
         [ testCase "Foo" $
             query @FooTag (\(x :: Foo) -> [x]) sampleFoo
-              @?= [Foo2 "bla" (Foo2 "blblo" (Foo1 "ok")), Foo2 "blblo" (Foo1 "ok"), Foo1 "ok"],
-          testCase "String" $
+              @?= [Foo2 "bla" (Foo2 "blblo" (Foo1 "ok")), Foo2 "blblo" (Foo1 "ok"), Foo1 "ok"]
+        , testCase "String" $
             query @FooTag (\(x :: String) -> [x]) sampleFoo
               @?= ["bla", "blblo", "ok"]
-        ],
-      testCase "ModSub" $
+        ]
+    , testCase "ModSub" $
         walkSub @FooTag list' sampleFoo2
           @?= Identity (Foo3 [0, 1, 0, 1] "2abc" [[8, 16, 18], [10, 12, 14]] 32 [2, 3, 2, 3])
     ]

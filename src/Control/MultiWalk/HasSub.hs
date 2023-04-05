@@ -1,7 +1,17 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Control.MultiWalk.HasSub where
+module Control.MultiWalk.HasSub (
+  HasSub (..),
+  SubSpec (..),
+  SelSpec (..),
+  Carrier,
+  ToSpec,
+  ToSpecSel,
+  All,
+  AllMods,
+  GSubTag,
+) where
 
 import Control.Applicative (liftA2)
 import Data.Kind (Constraint, Type)
@@ -9,7 +19,17 @@ import Data.Proxy (Proxy (..))
 import GHC.Generics
 import GHC.TypeLits
 
-data SubSpec = SubSpec SelSpec Type Type
+data SubSpec
+  = SubSpec
+      SelSpec
+      -- ^ Constructor and field selectors
+      Type
+      -- ^ Modifiers (used for customizing constraints)
+      Type
+      -- ^ Carrier type, should be equal to Carrier of type above (to be aligned
+      -- with the target's generic subtypes)
+
+type family Carrier ctag a :: Type
 
 data SelSpec
   = NoSel
@@ -17,34 +37,34 @@ data SelSpec
   | FieldSel Symbol
   | ConsFieldSel Symbol Symbol
 
-type family SpecCarrier (t :: SubSpec) where
-  SpecCarrier ('SubSpec _ a _) = a
+type ToSpec tag (a :: Type) = 'SubSpec 'NoSel a (Carrier tag a)
+type ToSpecSel tag (s :: SelSpec) (a :: Type) = 'SubSpec s a (Carrier tag a)
 
-class HasSub tag (ls :: [SubSpec]) t where
+class HasSub ctag tag (ls :: [SubSpec]) t where
   modSub ::
     forall c m.
-    (Applicative m, All c ls) =>
+    (Applicative m, AllMods c ls) =>
     Proxy c ->
-    (forall s. c s => Proxy s -> SpecCarrier s -> m (SpecCarrier s)) ->
+    (forall s. c s => Proxy s -> Carrier ctag s -> m (Carrier ctag s)) ->
     t ->
     m t
   getSub ::
     forall c m.
-    (Monoid m, All c ls) =>
+    (Monoid m, AllMods c ls) =>
     Proxy c ->
-    (forall s. c s => Proxy s -> SpecCarrier s -> m) ->
+    (forall s. c s => Proxy s -> Carrier ctag s -> m) ->
     t ->
     m
 
-instance HasSub tag '[] t where
+instance HasSub tag ctag '[] t where
   modSub _ _ = pure
   getSub _ _ = mempty
 
 data GSubTag
 
-instance (Generic t, HasSub' (l : ls) 'Nothing 'Nothing (Rep t)) => HasSub GSubTag (l : ls) t where
-  modSub p f = fmap to . modSub' @(l : ls) @'Nothing @'Nothing p f . from
-  getSub p f = getSub' @(l : ls) @'Nothing @'Nothing p f . from
+instance (Generic t, HasSub' ctag (l : ls) 'Nothing 'Nothing (Rep t)) => HasSub ctag GSubTag (l : ls) t where
+  modSub p f = fmap to . modSub' @ctag @(l : ls) @'Nothing @'Nothing p f . from
+  getSub p f = getSub' @ctag @(l : ls) @'Nothing @'Nothing p f . from
 
 -- Generic code
 
@@ -52,87 +72,106 @@ type family All (p :: k -> Constraint) (as :: [k]) :: Constraint where
   All p '[] = ()
   All p (a ': as) = (p a, All p as)
 
-class HasSub' (ls :: [SubSpec]) (cname :: Maybe Symbol) (sname :: Maybe Symbol) (t :: Type -> Type) where
+type family SpecMods (s :: SubSpec) :: Type where
+  SpecMods ('SubSpec _ t _) = t
+
+type family AllMods (p :: Type -> Constraint) (as :: [SubSpec]) :: Constraint where
+  AllMods p '[] = ()
+  AllMods p (a ': as) = (p (SpecMods a), AllMods p as)
+
+class HasSub' ctag (ls :: [SubSpec]) (cname :: Maybe Symbol) (sname :: Maybe Symbol) (t :: Type -> Type) where
   modSub' ::
     forall c m p.
-    (Applicative m, All c ls) =>
+    (Applicative m, AllMods c ls) =>
     Proxy c ->
-    (forall s. c s => Proxy s -> SpecCarrier s -> m (SpecCarrier s)) ->
+    (forall s. c s => Proxy s -> Carrier ctag s -> m (Carrier ctag s)) ->
     t p ->
     m (t p)
   getSub' ::
     forall c m p.
-    (Monoid m, All c ls) =>
+    (Monoid m, AllMods c ls) =>
     Proxy c ->
-    (forall s. c s => Proxy s -> SpecCarrier s -> m) ->
+    (forall s. c s => Proxy s -> Carrier ctag s -> m) ->
     t p ->
     m
 
-instance HasSub' ('SubSpec 'NoSel t tt : ls) _a _b (K1 _c t) where
-  modSub' _ f (K1 x) = K1 <$> f (Proxy @('SubSpec 'NoSel t tt)) x
-  getSub' _ f (K1 x) = f (Proxy @('SubSpec 'NoSel t tt)) x
+instance
+  Carrier ctag t1 ~ t2 =>
+  HasSub' ctag ('SubSpec 'NoSel t1 t2 : ls) _a _b (K1 _c t2)
+  where
+  modSub' _ f (K1 x) = K1 <$> f (Proxy @t1) x
+  getSub' _ f (K1 x) = f (Proxy @t1) x
 
-instance HasSub' ('SubSpec ('FieldSel s) t tt : ls) _a ('Just s) (K1 _c t) where
-  modSub' _ f (K1 x) = K1 <$> f (Proxy @('SubSpec ('FieldSel s) t tt)) x
-  getSub' _ f (K1 x) = f (Proxy @('SubSpec ('FieldSel s) t tt)) x
+instance
+  Carrier ctag t1 ~ t2 =>
+  HasSub' ctag ('SubSpec ('FieldSel s) t1 t2 : ls) _a ('Just s) (K1 _c t2)
+  where
+  modSub' _ f (K1 x) = K1 <$> f (Proxy @t1) x
+  getSub' _ f (K1 x) = f (Proxy @t1) x
 
-instance HasSub' ('SubSpec ('ConsSel s) t tt : ls) ('Just s) _b (K1 _c t) where
-  modSub' _ f (K1 x) = K1 <$> f (Proxy @('SubSpec ('ConsSel s) t tt)) x
-  getSub' _ f (K1 x) = f (Proxy @('SubSpec ('ConsSel s) t tt)) x
+instance
+  Carrier ctag t1 ~ t2 =>
+  HasSub' ctag ('SubSpec ('ConsSel s) t1 t2 : ls) ('Just s) _b (K1 _c t2)
+  where
+  modSub' _ f (K1 x) = K1 <$> f (Proxy @t1) x
+  getSub' _ f (K1 x) = f (Proxy @t1) x
 
-instance HasSub' ('SubSpec ('ConsFieldSel s1 s2) t tt : ls) ('Just s1) ('Just s2) (K1 _c t) where
-  modSub' _ f (K1 x) = K1 <$> f (Proxy @('SubSpec ('ConsFieldSel s1 s2) t tt)) x
-  getSub' _ f (K1 x) = f (Proxy @('SubSpec ('ConsFieldSel s1 s2) t tt)) x
+instance
+  Carrier ctag t1 ~ t2 =>
+  HasSub' ctag ('SubSpec ('ConsFieldSel s1 s2) t1 t2 : ls) ('Just s1) ('Just s2) (K1 _c t2)
+  where
+  modSub' _ f (K1 x) = K1 <$> f (Proxy @t1) x
+  getSub' _ f (K1 x) = f (Proxy @t1) x
 
-instance {-# OVERLAPPABLE #-} HasSub' ls a b (K1 j s) => HasSub' (l : ls) a b (K1 j s) where
-  modSub' = modSub' @ls @a @b
-  getSub' = getSub' @ls @a @b
+instance {-# OVERLAPPABLE #-} HasSub' ctag ls a b (K1 j s) => HasSub' ctag (l : ls) a b (K1 j s) where
+  modSub' = modSub' @ctag @ls @a @b
+  getSub' = getSub' @ctag @ls @a @b
 
-instance HasSub' '[] _a _b (K1 _c _d) where
+instance HasSub' ctag '[] _a _b (K1 _c _d) where
   modSub' _ _ = pure
   getSub' _ _ = mempty
 
 instance
-  ( HasSub' s a 'Nothing x
-  , HasSub' s a 'Nothing y
+  ( HasSub' ctag s a 'Nothing x
+  , HasSub' ctag s a 'Nothing y
   ) =>
-  HasSub' s a 'Nothing (x :*: y)
+  HasSub' ctag s a 'Nothing (x :*: y)
   where
-  modSub' p f (x :*: y) = liftA2 (:*:) (modSub' @s @a @'Nothing p f x) (modSub' @s @a @'Nothing p f y)
-  getSub' p f (x :*: y) = getSub' @s @a @'Nothing p f x <> getSub' @s @a @'Nothing p f y
+  modSub' p f (x :*: y) = liftA2 (:*:) (modSub' @ctag @s @a @'Nothing p f x) (modSub' @ctag @s @a @'Nothing p f y)
+  getSub' p f (x :*: y) = getSub' @ctag @s @a @'Nothing p f x <> getSub' @ctag @s @a @'Nothing p f y
 
-instance HasSub' _a _b _c U1 where
+instance HasSub' ctag _a _b _c U1 where
   modSub' _ _ = pure
   getSub' _ _ = mempty
 
 instance
-  ( HasSub' s 'Nothing 'Nothing x
-  , HasSub' s 'Nothing 'Nothing y
+  ( HasSub' ctag s 'Nothing 'Nothing x
+  , HasSub' ctag s 'Nothing 'Nothing y
   ) =>
-  HasSub' s 'Nothing 'Nothing (x :+: y)
+  HasSub' ctag s 'Nothing 'Nothing (x :+: y)
   where
-  modSub' p f (L1 x) = L1 <$> modSub' @s @'Nothing @'Nothing p f x
-  modSub' p f (R1 x) = R1 <$> modSub' @s @'Nothing @'Nothing p f x
-  getSub' p f (L1 x) = getSub' @s @'Nothing @'Nothing p f x
-  getSub' p f (R1 x) = getSub' @s @'Nothing @'Nothing p f x
+  modSub' p f (L1 x) = L1 <$> modSub' @ctag @s @'Nothing @'Nothing p f x
+  modSub' p f (R1 x) = R1 <$> modSub' @ctag @s @'Nothing @'Nothing p f x
+  getSub' p f (L1 x) = getSub' @ctag @s @'Nothing @'Nothing p f x
+  getSub' p f (R1 x) = getSub' @ctag @s @'Nothing @'Nothing p f x
 
 instance
-  HasSub' ls a ('Just s) x =>
-  HasSub' ls a 'Nothing (S1 ('MetaSel ('Just s) _a _b _c) x)
+  HasSub' ctag ls a s x =>
+  HasSub' ctag ls a 'Nothing (S1 ('MetaSel s _a _b _c) x)
   where
-  modSub' p f (M1 x) = M1 <$> modSub' @ls @a @('Just s) p f x
-  getSub' p f (M1 x) = getSub' @ls @a @('Just s) p f x
+  modSub' p f (M1 x) = M1 <$> modSub' @ctag @ls @a @s p f x
+  getSub' p f (M1 x) = getSub' @ctag @ls @a @s p f x
 
 instance
-  HasSub' ls ('Just s) 'Nothing x =>
-  HasSub' ls 'Nothing 'Nothing (C1 ('MetaCons s _a _b) x)
+  HasSub' ctag ls ('Just s) 'Nothing x =>
+  HasSub' ctag ls 'Nothing 'Nothing (C1 ('MetaCons s _a _b) x)
   where
-  modSub' p f (M1 x) = M1 <$> modSub' @ls @('Just s) @'Nothing p f x
-  getSub' p f (M1 x) = getSub' @ls @('Just s) @'Nothing p f x
+  modSub' p f (M1 x) = M1 <$> modSub' @ctag @ls @('Just s) @'Nothing p f x
+  getSub' p f (M1 x) = getSub' @ctag @ls @('Just s) @'Nothing p f x
 
 instance
-  HasSub' ls 'Nothing 'Nothing x =>
-  HasSub' ls 'Nothing 'Nothing (D1 _a x)
+  HasSub' ctag ls 'Nothing 'Nothing x =>
+  HasSub' ctag ls 'Nothing 'Nothing (D1 _a x)
   where
-  modSub' p f (M1 x) = M1 <$> modSub' @ls @'Nothing @'Nothing p f x
-  getSub' p f (M1 x) = getSub' @ls @'Nothing @'Nothing p f x
+  modSub' p f (M1 x) = M1 <$> modSub' @ctag @ls @'Nothing @'Nothing p f x
+  getSub' p f (M1 x) = getSub' @ctag @ls @'Nothing @'Nothing p f x

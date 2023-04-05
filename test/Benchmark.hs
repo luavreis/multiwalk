@@ -32,33 +32,34 @@ instance MultiTag PTag where
       '[ Block,
          Inline
        ]
-  type SubTag PTag = PTag
 
 type DoubleList a = MatchWith [[a]] (Trav (Compose [] []) a)
 
 instance MultiSub PTag Block where
   type
     SubTypes PTag Block =
-      '[ BuildSpec (Trav [] Inline),
-         BuildSpec (DoubleList Inline),
-         BuildSpec (Trav [] Block),
-         BuildSpec (DoubleList Block),
-         BuildSpec
+      '[ ToSpec (Trav [] Inline),
+         ToSpec (DoubleList Inline),
+         ToSpec (Trav [] Block),
+         ToSpec (DoubleList Block),
+         ToSpec
            ( Under
                [([Inline], [[Block]])]
-               (Under ([Inline], [[Block]]) (Trav [] Inline))
+               'NoSel
+               (Under ([Inline], [[Block]]) 'NoSel (Trav [] Inline))
            ),
-         BuildSpec
+         ToSpec
            ( Under
                [([Inline], [[Block]])]
-               (Under ([Inline], [[Block]]) (DoubleList Block))
+               'NoSel
+               (Under ([Inline], [[Block]]) 'NoSel (DoubleList Block))
            )
        ]
 
 instance MultiSub PTag Inline where
   type
     SubTypes PTag Inline =
-      '[BuildSpec (Trav [] Inline), BuildSpec (Trav [] Block)]
+      '[ToSpec (Trav [] Inline), ToSpec (Trav [] Block)]
 
 prepEnv :: IO [Block]
 prepEnv = do
