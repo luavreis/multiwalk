@@ -44,7 +44,7 @@ license-file:       LICENSE
 author:             Lucas V. R.
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         lvr@s-viva.xyz
+maintainer:         @lucasvr:matrix.org
 
 -- A copyright notice.
 -- copyright:
@@ -96,8 +96,7 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base >= 4.14 && < 5,
-                      transformers
+    build-depends:    base >= 4.14 && < 5
 
     -- Directories containing source files.
     hs-source-dirs:   src

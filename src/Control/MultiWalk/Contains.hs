@@ -27,6 +27,7 @@ type Carrier a = HS.Carrier MWCTag a
 type ToSpec a = HS.ToSpec MWCTag a
 type ToSpecSel s a = HS.ToSpecSel MWCTag s a
 
+-- | Modify (only) substructures by applying functions from 'FList'.
 modSubWithFList ::
   forall tag ls t fs m.
   (HasSub tag ls t, Applicative m, AllMods (TContains fs) ls) =>
@@ -36,6 +37,7 @@ modSubWithFList ::
 modSubWithFList fs =
   HS.modSub @MWCTag @tag @ls @t (Proxy @(TContains fs)) (\(_ :: Proxy s) -> tGetW @fs @s fs)
 
+-- | Query (only) substructures by applying functions from 'QList'.
 getSubWithQList ::
   forall tag ls t fs m.
   (HasSub tag ls t, Monoid m, AllMods (TContains fs) ls) =>
@@ -47,6 +49,7 @@ getSubWithQList fs =
 
 infixr 8 :?:
 
+-- | Heterogeneous list of queries
 data QList :: Type -> [Type] -> Type where
   QNil :: QList m '[]
   (:?:) :: (x -> m) -> QList m xs -> QList m (x : xs)
@@ -65,6 +68,7 @@ instance QContains xs t => QContains (x : xs) t where
 
 infixr 8 :.:
 
+-- | Heterogeneous list of monadic-valued functions
 data FList :: (Type -> Type) -> [Type] -> Type where
   FNil :: FList m '[]
   (:.:) :: (x -> m x) -> FList m xs -> FList m (x : xs)
@@ -81,6 +85,9 @@ instance FContains xs t => FContains (x : xs) t where
   fGet (_ :.: y) = fGet y
   fSet (x :.: y) z = x :.: fSet y z
 
+{- | Auxiliary class that keeps track of how retrieve queries and walks from their
+   lists and apply them according to the combinators.
+-}
 class TContains (fs :: [Type]) (t :: Type) where
   tGetW :: Applicative m => FList m fs -> ContainsCarrier t -> m (ContainsCarrier t)
   tGetQ :: Monoid m => QList m fs -> ContainsCarrier t -> m
@@ -109,7 +116,9 @@ instance
   tGetW = traverse . tGetW @fs @a
   tGetQ = foldMap . tGetQ @fs @a
 
--- | Use this for matching with another type that is coercible to the functor you want.
+{- | Use this for matching with another type that is coercible to the type you
+   want.
+-}
 data MatchWith (s :: Type) (a :: Type)
 
 instance
@@ -122,7 +131,7 @@ instance
   tGetQ fs = tGetQ @fs @a fs . coerce
 
 {- | Use this for matching a subcomponent nested inside another type. Useful if
-you don't want to add the middle type to the list of walkable types.
+   you don't want to add the middle type to the list of walkable types.
 -}
 data Under (b :: Type) (s :: SelSpec) (a :: Type)
 
