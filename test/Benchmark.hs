@@ -10,7 +10,6 @@ import qualified Control.Monad.Trans.Writer.Lazy as LW
 import qualified Control.Monad.Trans.Writer.Strict as CPSW
 import qualified Control.Monad.Trans.Writer.Strict as SW
 import Control.MultiWalk
-import Control.MultiWalk.Contains
 import qualified Data.ByteString as B
 import Data.Functor (($>))
 import Data.Functor.Compose (Compose (..))
