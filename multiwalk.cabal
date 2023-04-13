@@ -96,7 +96,7 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base >= 4.14 && < 5
+    build-depends:    base >= 4.16.4 && < 4.19
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -127,27 +127,27 @@ test-suite multiwalk-test
 
     -- Test dependencies.
     build-depends:
-        base >= 4.14 && < 5,
+        base,
         multiwalk,
-        tasty,
-        tasty-hunit
+        tasty >= 1.4.3 && < 1.5,
+        tasty-hunit >= 0.10.0 && < 0.11
 
 benchmark bench
     import:           common-options
     hs-source-dirs:   test
     main-is:          Benchmark.hs
     type:             exitcode-stdio-1.0
-    build-depends:    base >= 4.14 && < 5,
-                      bytestring,
-                      deepseq,
+    build-depends:    base,
+                      bytestring >= 0.11.4 && < 0.12,
+                      deepseq >= 1.4.6 && < 1.5,
                       multiwalk,
                       tasty,
-                      tasty-bench,
+                      tasty-bench >= 0.3.3 && < 0.4,
                       tasty-hunit,
-                      pandoc-types,
-                      commonmark,
-                      commonmark-pandoc,
-                      transformers,
-                      text
+                      pandoc-types >= 1.23 && < 1.24,
+                      commonmark >= 0.2.2 && < 0.3,
+                      commonmark-pandoc >= 0.2.1 && < 0.3,
+                      transformers >= 0.5.6 && < 0.6,
+                      text >= 1.2.5 && < 2.1
     ghc-options:   "-with-rtsopts=-A32m --nonmoving-gc"
     default-language: Haskell2010
