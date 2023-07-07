@@ -152,7 +152,7 @@ walk f = runIdentity . walkM @tag (Identity . f)
 
 -- | Modify a structure by walking with a single function (just like Pandoc.Walk).
 walkM ::
-  forall tag a m t.
+  forall tag t a m.
   ( Monad m
   , MultiTag tag
   , MultiWalk tag a
