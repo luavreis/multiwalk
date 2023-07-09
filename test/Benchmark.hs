@@ -28,8 +28,8 @@ data PTag
 instance MultiTag PTag where
   type
     MultiTypes PTag =
-      '[ Block,
-         Inline
+      '[ Block
+       , Inline
        ]
 
 type DoubleList a = MatchWith [[a]] (Trav (Compose [] []) a)
@@ -37,28 +37,29 @@ type DoubleList a = MatchWith [[a]] (Trav (Compose [] []) a)
 instance MultiSub PTag Block where
   type
     SubTypes PTag Block =
-      '[ ToSpec (Trav [] Inline),
-         ToSpec (DoubleList Inline),
-         ToSpec (Trav [] Block),
-         ToSpec (DoubleList Block),
-         ToSpec
-           ( Under
-               [([Inline], [[Block]])]
-               'NoSel
-               (Under ([Inline], [[Block]]) 'NoSel (Trav [] Inline))
-           ),
-         ToSpec
-           ( Under
-               [([Inline], [[Block]])]
-               'NoSel
-               (Under ([Inline], [[Block]]) 'NoSel (DoubleList Block))
-           )
-       ]
+      'SpecList
+        '[ ToSpec (Trav [] Inline)
+         , ToSpec (DoubleList Inline)
+         , ToSpec (Trav [] Block)
+         , ToSpec (DoubleList Block)
+         , ToSpec
+            ( Under
+                [([Inline], [[Block]])]
+                'NoSel
+                (Under ([Inline], [[Block]]) 'NoSel (Trav [] Inline))
+            )
+         , ToSpec
+            ( Under
+                [([Inline], [[Block]])]
+                'NoSel
+                (Under ([Inline], [[Block]]) 'NoSel (DoubleList Block))
+            )
+         ]
 
 instance MultiSub PTag Inline where
   type
     SubTypes PTag Inline =
-      '[ToSpec (Trav [] Inline), ToSpec (Trav [] Block)]
+      'SpecList '[ToSpec (Trav [] Inline), ToSpec (Trav [] Block)]
 
 prepEnv :: IO [Block]
 prepEnv = do
@@ -133,18 +134,18 @@ main =
   defaultMain
     [ bgroup
         "query"
-        [ env prepEnv $ bench "multiwalk" . nf multi,
-          env prepEnv $ bench "mw lw" . nf multiLW,
-          env prepEnv $ bench "mw sw" . nf multiSW,
-          env prepEnv $ bench "mw cpsw" . nf multiCPSW,
-          env prepEnv $ bench "syb" . nf gene,
-          env prepEnv $ bench "pandoc.walk" . nf wal,
-          env prepEnv $ \blocks ->
+        [ env prepEnv $ bench "multiwalk" . nf multi
+        , env prepEnv $ bench "mw lw" . nf multiLW
+        , env prepEnv $ bench "mw sw" . nf multiSW
+        , env prepEnv $ bench "mw cpsw" . nf multiCPSW
+        , env prepEnv $ bench "syb" . nf gene
+        , env prepEnv $ bench "pandoc.walk" . nf wal
+        , env prepEnv $ \blocks ->
             -- The other implementations return out of order (!!!) fragments, but sorted they should be the same.
             bgroup
               "equality"
-              [ testCase "multiwalk eq syb" (sort (multi blocks) @?= sort (gene blocks)),
-                testCase "multiwalk eq pandoc.walk" (sort (multi blocks) @?= sort (wal blocks))
+              [ testCase "multiwalk eq syb" (sort (multi blocks) @?= sort (gene blocks))
+              , testCase "multiwalk eq pandoc.walk" (sort (multi blocks) @?= sort (wal blocks))
               ]
         ]
     ]

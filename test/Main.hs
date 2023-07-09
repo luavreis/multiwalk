@@ -1,7 +1,6 @@
 module Main (main) where
 
 import Control.MultiWalk
-import Control.MultiWalk.Contains
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
@@ -28,20 +27,21 @@ instance MultiTag FooTag where
 instance MultiSub FooTag Foo where
   type
     SubTypes FooTag Foo =
-      '[ ToSpec Foo
-       , ToSpec String
-       , ToSpec (MatchWith [[Int]] (Trav (Compose [] []) Int))
-       , ToSpec [Int]
-       ]
+      'SpecList
+        '[ ToSpec Foo
+         , ToSpec String
+         , ToSpec (MatchWith [[Int]] (Trav (Compose [] []) Int))
+         , ToSpec [Int]
+         ]
 
 instance MultiSub FooTag String where
-  type SubTypes FooTag String = '[]
+  type SubTypes FooTag String = 'SpecLeaf
 
 instance MultiSub FooTag Int where
-  type SubTypes FooTag Int = '[]
+  type SubTypes FooTag Int = 'SpecLeaf
 
 instance MultiSub FooTag [Int] where
-  type SubTypes FooTag [Int] = '[ToSpec (Trav [] Int)]
+  type SubTypes FooTag [Int] = 'SpecList '[ToSpec (Trav [] Int)]
 
 sampleFoo :: Foo
 sampleFoo = Foo2 "bla" (Foo2 "blblo" (Foo1 "ok"))

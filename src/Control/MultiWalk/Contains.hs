@@ -137,9 +137,9 @@ data Under (b :: Type) (s :: SelSpec) (a :: Type)
 
 instance
   ( TContains fs a
-  , HasSub GSubTag '[ 'SubSpec s a (Carrier a)] b
+  , HasSub GSubTag ('SpecList '[ 'SubSpec s a (Carrier a)]) b
   ) =>
   TContains fs (Under b s a)
   where
-  tGetW = modSubWithFList @GSubTag @'[ 'SubSpec s a (Carrier a)] @b @fs
-  tGetQ = getSubWithQList @GSubTag @'[ 'SubSpec s a (Carrier a)] @b @fs
+  tGetW = modSubWithFList @GSubTag @('SpecList '[ 'SubSpec s a (Carrier a)]) @b @fs
+  tGetQ = getSubWithQList @GSubTag @('SpecList '[ 'SubSpec s a (Carrier a)]) @b @fs

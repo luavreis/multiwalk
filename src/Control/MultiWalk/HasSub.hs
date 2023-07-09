@@ -3,6 +3,7 @@
 
 module Control.MultiWalk.HasSub (
   HasSub (..),
+  Spec (..),
   SubSpec (..),
   SelSpec (..),
   Carrier,
@@ -18,6 +19,13 @@ import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (..))
 import GHC.Generics
 import GHC.TypeLits
+
+data Spec
+  = SpecList [SubSpec]
+  | SpecLeaf
+  | -- | Modifiers (used for customizing constraints)
+    SpecSelf
+      Type
 
 data SubSpec
   = SubSpec
@@ -40,7 +48,7 @@ data SelSpec
 type ToSpec tag (a :: Type) = 'SubSpec 'NoSel a (Carrier tag a)
 type ToSpecSel tag (s :: SelSpec) (a :: Type) = 'SubSpec s a (Carrier tag a)
 
-class HasSub ctag tag (ls :: [SubSpec]) t where
+class HasSub ctag tag (ls :: Spec) t where
   modSub ::
     forall c m.
     (Applicative m, AllMods c ls) =>
@@ -56,13 +64,17 @@ class HasSub ctag tag (ls :: [SubSpec]) t where
     t ->
     m
 
-instance HasSub tag ctag '[] t where
+instance (Carrier tag s ~ t) => HasSub tag ctag ('SpecSelf s) t where
+  modSub _ f = f (Proxy @s)
+  getSub _ f = f (Proxy @s)
+
+instance HasSub tag ctag 'SpecLeaf t where
   modSub _ _ = pure
   getSub _ _ = mempty
 
 data GSubTag
 
-instance (Generic t, HasSub' ctag (l : ls) 'Nothing 'Nothing (Rep t)) => HasSub ctag GSubTag (l : ls) t where
+instance (Generic t, HasSub' ctag (l : ls) 'Nothing 'Nothing (Rep t)) => HasSub ctag GSubTag ('SpecList (l : ls)) t where
   modSub p f = fmap to . modSub' @ctag @(l : ls) @'Nothing @'Nothing p f . from
   getSub p f = getSub' @ctag @(l : ls) @'Nothing @'Nothing p f . from
 
@@ -75,21 +87,26 @@ type family All (p :: k -> Constraint) (as :: [k]) :: Constraint where
 type family SpecMods (s :: SubSpec) :: Type where
   SpecMods ('SubSpec _ t _) = t
 
-type family AllMods (p :: Type -> Constraint) (as :: [SubSpec]) :: Constraint where
-  AllMods p '[] = ()
-  AllMods p (a ': as) = (p (SpecMods a), AllMods p as)
+type family AllMods (p :: Type -> Constraint) (as :: Spec) :: Constraint where
+  AllMods p ('SpecList ls) = AllMods' p ls
+  AllMods p ('SpecSelf t) = p t
+  AllMods p 'SpecLeaf = ()
+
+type family AllMods' (p :: Type -> Constraint) (as :: [SubSpec]) :: Constraint where
+  AllMods' p '[] = ()
+  AllMods' p (a ': as) = (p (SpecMods a), AllMods' p as)
 
 class HasSub' ctag (ls :: [SubSpec]) (cname :: Maybe Symbol) (sname :: Maybe Symbol) (t :: Type -> Type) where
   modSub' ::
     forall c m p.
-    (Applicative m, AllMods c ls) =>
+    (Applicative m, AllMods' c ls) =>
     Proxy c ->
     (forall s. c s => Proxy s -> Carrier ctag s -> m (Carrier ctag s)) ->
     t p ->
     m (t p)
   getSub' ::
     forall c m p.
-    (Monoid m, AllMods c ls) =>
+    (Monoid m, AllMods' c ls) =>
     Proxy c ->
     (forall s. c s => Proxy s -> Carrier ctag s -> m) ->
     t p ->

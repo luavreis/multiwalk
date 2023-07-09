@@ -57,6 +57,7 @@ module Control.MultiWalk (
   (?>),
   ToSpec,
   ToSpecSel,
+  Spec (..),
   SelSpec (..),
   Trav,
   MatchWith,
@@ -98,7 +99,7 @@ class MultiSub tag t where
   -- Substructure specifications are special datakinds that you can generate
   -- using 'ToSpec' and 'ToSpecSel', and the combinators (eg. 'Under',
   -- 'MatchWith' and 'Trav').
-  type SubTypes tag t :: [SubSpec]
+  type SubTypes tag t :: Spec
 
   -- | If you want to write HasSub instances by hand (not that easy), you can
   -- put the associated HasSub tag here. Defaults to 'GSubTag' (which derives
